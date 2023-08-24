@@ -37,11 +37,20 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    #  installed app
+    'rest_framework',
+    'corsheaders',
+    'knox',
+    # custom app
+    'account',
+    'exam',
+    'question',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -121,3 +130,24 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+AUTH_USER_MODEL = 'account.User'
+
+CORS_ALLOWED_ORIGINS = [
+    'http://localhost:3000',
+    'http://127.0.0.1:8000',
+]
+
+REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticatedOrReadOnly',
+    ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'knox.auth.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication'
+    ]
+}
+
+if DEBUG:
+    REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'].append(
+        'rest_framework.authentication.BasicAuthentication')
