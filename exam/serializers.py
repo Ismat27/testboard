@@ -13,7 +13,7 @@ class ExamCreateSerializer(ModelSerializer):
 
     class Meta:
         model = Assessment
-        fields = '__all__'
+        exclude = ('candidates', 'examiner')
 
 
 class ExamResultListSerializer(ModelSerializer):

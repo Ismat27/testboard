@@ -4,8 +4,9 @@ from django.conf import settings
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('account/', include('account.urls', namespace='account')),
-    path('api/', include('exam.urls'))
+    path('api/account/', include('account.urls', namespace='account')),
+    path('api/', include('exam.urls')),
+    path('api/questions/', include('question.urls')),
 ]
 
 if settings.DEBUG:

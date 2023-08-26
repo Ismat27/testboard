@@ -23,6 +23,9 @@ class ExamListCreateAPIView(generics.ListCreateAPIView):
             return ExamCreateSerializer
         return super().get_serializer_class()
 
+    def perform_create(self, serializer):
+        return serializer.save(examiner=self.request.user)
+
 
 class ExamRetrieveUpdateDestroyAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Assessment.objects.all()
