@@ -8,6 +8,7 @@ class Question(models.Model):
         Assessment, on_delete=models.CASCADE, related_name='questions')
     content = models.TextField()
     point = models.IntegerField()
+    cardinality = models.IntegerField()
 
     class Meta:
         verbose_name_plural = 'Assessment Questions'
@@ -32,6 +33,8 @@ class QuestionGrade(models.Model):
     candidate = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     selected_options = models.ManyToManyField(QuestionOption)
+    question = models.OneToOneField(
+        Question, null=True, on_delete=models.SET_NULL)
 
     class Meta:
         verbose_name = 'Grade'
