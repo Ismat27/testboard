@@ -1,14 +1,19 @@
 from django.utils import timezone
+from django.conf import settings
+import jwt
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from .serializers import ExamSerializer
-from .models import Assessment, AssessmentResult, AssessmentLogin, AssessmentToken
+from .models import Assessment, AssessmentResult,\
+    AssessmentLogin, AssessmentToken, Result
 from .serializers import ExamSerializer, ExamCreateSerializer,\
     ExamResultListSerializer, ExamTokenSerializer
 from .permissions import ExamOwnerPermission, ExamResultPermission
 from question.models import Question, QuestionGrade
 from question.serializers import QuestionSerializer
+
+EXAM_TOKEN_SECRET = settings.EXAM_TOKEN_SECRET
 
 
 class ExamListCreateAPIView(generics.ListCreateAPIView):
@@ -81,6 +86,7 @@ class ExamLoginAPIView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
+        username = data.get("username")
         code = data.pop("code")
         try:
             login = AssessmentLogin.objects.get(
@@ -98,13 +104,18 @@ class ExamLoginAPIView(generics.CreateAPIView):
             expires = assessment.duration + current_time
             if (expires > assessment.end_date):
                 expires = assessment.end_date
+            encoded_token = jwt.encode({
+                "exam_code": assessment.exam_code,
+                "exam_id": assessment.pk,
+                "username": username,
+                "exp": expires,
+            }, EXAM_TOKEN_SECRET, algorithm="HS256")
             token = AssessmentToken.objects.create(
-                token="generate hashed token",
+                token=encoded_token,
                 login=login,
                 expires=expires
             )
             return Response({"token": token.token, }, status=200)
-            # create token
         except:
             return Response({"message": "incorrect credentials"}, status=400)
 
@@ -114,16 +125,42 @@ class StartExam(generics.ListAPIView):
 
     def get_queryset(self):
         pk = self.kwargs.get("pk")
-        items = Question.objects.filter(id=pk)
+        items = Question.objects.filter(assessment_id=pk)
         return items
 
     def list(self, request, *args, **kwargs):
-        authorization = self.headers.get("Authorization", {})
-        exam_token = authorization.get("exam_token", None)
+        authorization = request.headers.get("Authorization")
+        exam_token = authorization
         if not exam_token:
             return Response({"message": "exam token is missing"}, status=400)
-        # check if token has not expired
-            # check if exam is still ongoing
-            # check if candidate has not submitted
-            #  decode token to obtain candidate record
+        try:
+            decoded_token = jwt.decode(
+                exam_token, EXAM_TOKEN_SECRET, algorithms=['HS256'])
+            username = decoded_token["username"]
+            exam_code = decoded_token["exam_code"]
+            login = AssessmentLogin.objects.get(
+                username=username, assessment__exam_code=exam_code)
+        except:
+            return Response({"message": "invalid or expired token"}, status=400)
+        # check if exam is still ongoing
+        assessment_id = kwargs.get("pk")
+        assessment = Assessment.objects.filter(id=assessment_id).first()
+        if not assessment:
+            return Response({"message": "invalid credentials"}, status=400)
+        if not assessment.is_ongoing:
+            return Response({"message": "assessment is closed or not started"}, status=403)
+        # check if candidate has not submitted
+        result = Result.objects.filter(
+            candidate_credential__username=username).first()
+        if result:
+            if result.submitted:
+                return Response({"message": "result submitted"}, status=403)
+        else:
+            result = Result.objects.create(
+                submitted=False,
+                started=True,
+                date_started=timezone.now(),
+                candidate_credential=login,
+                score=0
+            )
         return super().list(request, *args, **kwargs)
